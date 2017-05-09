@@ -1,8 +1,12 @@
 package com.maddylabs.faas;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.google.gson.Gson;
 
@@ -23,9 +27,20 @@ public class StdInOutMockFunction {
             System.err.println("Waiting for system.in");
             Request input = readInput();
             System.err.println("Read input as " + input);
-            Thread.sleep(input.getRespondIn());
-            writeOutput(input);
-            System.exit(input.getExitCode());
+            Runnable r = () -> {
+                try {
+                    Thread.sleep(input.getRespondIn());
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+                writeOutput(input);
+                System.exit(input.getExitCode());
+            };
+            if ("async".equalsIgnoreCase(input.getType())) {
+                new Thread(r).start();
+            } else {
+                r.run();
+            }
         } catch (Exception e) {
             e.printStackTrace();
             System.exit(-1);
@@ -33,10 +48,20 @@ public class StdInOutMockFunction {
     }
 
     private static void writeOutput(Request input) {
-        Map<String,Object> out = new HashMap<>();
+        Map<String, Object> out = new HashMap<>();
         out.put("data", input.getResponseStr());
         out.put("env", System.getenv());
-        out.put("prop", System.getProperties());
+        out.put("sleepTime", input.getRespondIn());
+        out.put("respondedAt", System.currentTimeMillis());
+        try {
+            InetAddress[] allByName = InetAddress.getAllByName(input.getSvcName());
+            out.put("resolvedSvcName", Stream.of(allByName)
+                    .map(InetAddress::getHostAddress)
+                    .collect(Collectors.joining()));
+        } catch (UnknownHostException e) {
+            out.put("resolvedSvcName", e.getMessage());
+        }
+
         String json = new Gson().toJson(out);
         System.out.print(json);
     }
@@ -45,10 +70,10 @@ public class StdInOutMockFunction {
     private static Request readInput() {
         Scanner scan = new Scanner(System.in);
         StringBuilder inputBuilder = new StringBuilder();
-        while(scan.hasNext()){
+        while (scan.hasNext()) {
             inputBuilder.append(scan.next());
         }
         String input = inputBuilder.toString();
-        return new Gson().fromJson(input,Request.class);
+        return new Gson().fromJson(input, Request.class);
     }
 }

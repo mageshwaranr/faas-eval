@@ -37,3 +37,10 @@ Steps
     *  curl -H "Content-Type: application/json" -X POST -d '{ "respondIn" : 1000, "responseStr" : "test" , "exitCode" : 0 }' http://$IRON_FUNCTION/r/my-java-app/eval
 
 After a seconds delay, you should see a json out with following attributes. data, env, props.
+
+##Observations
+
+* Scales pretty well. Load is shared across all K8S functions pod.
+* The function's (docker container) can't access kubernetes network
+* The function's error handling can be monitored only via logs (default impl)
+* Its not straight forward to integrate docker log with K8S

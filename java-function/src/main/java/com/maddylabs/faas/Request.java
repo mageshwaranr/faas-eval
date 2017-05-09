@@ -15,5 +15,7 @@ public class Request {
     private long respondIn;
     private String responseStr;
     private int exitCode;
+    private String type;
+    private String svcName;
 
 }
